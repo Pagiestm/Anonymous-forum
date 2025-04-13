@@ -4,8 +4,7 @@ on: push
 
 env:
   REGISTRY: ghcr.io
-  # Converti le nom du dépôt en minuscules
-  REPOSITORY: ${{ toLowerCase(github.repository) }}
+  REPOSITORY: ${{ github.repository }}
 
 jobs:
   build-and-push-images:
