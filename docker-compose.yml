@@ -1,0 +1,57 @@
+services:
+  db:
+    image: mysql:8
+    container_name: forum-db
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: forum
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - backend
+    # healthcheck pour vérifier quand MySQL est prêt
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: forum-phpmyadmin
+    restart: always
+    ports:
+      - "8081:80"
+    environment:
+      PMA_HOST: db
+      MYSQL_ROOT_PASSWORD: root
+    depends_on:
+      - db
+    networks:
+      - backend
+      - frontend
+
+  api:
+    build: ./api
+    container_name: forum-api
+    environment:
+      MYSQL_HOST: db
+      MYSQL_PORT: 3306
+      MYSQL_USER: root
+      MYSQL_PASSWORD: root
+      MYSQL_DATABASE: forum
+    depends_on:
+      db:
+        condition: service_healthy  # Attend que db soit prêt
+    networks:
+      - backend
+
+volumes:
+  db_data:
+
+networks:
+  backend:
+    internal: true
+  frontend:
+    internal: false
