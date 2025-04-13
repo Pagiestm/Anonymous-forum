@@ -47,6 +47,28 @@ services:
     networks:
       - backend
 
+  thread:
+    build: ./thread
+    container_name: forum-thread
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+    networks:
+      - frontend
+      - backend
+
+  sender:
+    build: ./sender
+    container_name: forum-sender
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+    networks:
+      - frontend
+      - backend
+
 volumes:
   db_data:
 
