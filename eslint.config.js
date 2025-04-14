@@ -60,6 +60,27 @@ export default [
       'no-process-exit': 'off',
     },
   },
+  // Configuration pour les tests Jest
+  {
+    files: ['api/**/__tests__/**/*.js', 'api/**/*.test.js', 'api/**/*.spec.js'],
+    languageOptions: {
+      globals: {
+        // Variables globales Jest
+        jest: 'readonly',
+        describe: 'readonly',
+        it: 'readonly',
+        test: 'readonly',
+        expect: 'readonly',
+        beforeEach: 'readonly',
+        beforeAll: 'readonly',
+        afterEach: 'readonly',
+        afterAll: 'readonly',
+        vi: 'readonly',
+        vitest: 'readonly',
+        jest: 'readonly',
+      },
+    },
+  },
   // Configuration pour les frontends
   {
     files: ['thread/**/*.js', 'sender/**/*.js'],
