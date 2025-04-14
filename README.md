@@ -3,6 +3,7 @@
 ## Objectifs du Projet
 
 Ce projet vise à valider les compétences suivantes :
+
 - Création d'une image Docker
 - Mise en place d'un environnement de développement avec Docker Compose
 - Établissement d'une pipeline CI/CD sur Github
@@ -16,7 +17,6 @@ L'objectif est de concevoir un forum anonyme permettant aux utilisateurs de publ
 Dans l'environnement de développement, trois services ont été développés et une base de données déployée grâce à Docker Compose :
 
 1. **API** : Gestion de la création et de la récupération des messages du forum. Cette API est située dans un réseau interne, isolée d'Internet, et peut interagir avec les autres services.
-   
 2. **DB** : Base de données MySQL utilisée par l'API pour stocker les messages du forum, également située dans le réseau interne.
 
 3. **Thread** : Service chargé d'afficher les messages des utilisateurs via le port 80, consommant les services de l'API.
@@ -65,12 +65,14 @@ Ce projet suit la convention [Conventional Commits](https://www.conventionalcomm
 ## Installation et démarrage
 
 1. Cloner le dépôt :
+
 ```bash
 git clone https://github.com/votre-username/anonymous-forum.git
 cd anonymous-forum
 ```
 
 2. Lancer les services avec Docker Compose :
+
 ```bash
 docker-compose up -d
 ```
@@ -85,6 +87,7 @@ docker-compose up -d
 Ce projet est individuel. Un lien vers le dépôt de code est requis pour vérification avant la soutenance.
 
 La soutenance comprendra :
+
 1. Présentation du projet (environ 5 minutes)
 2. Questions sur les choix effectués et revue technique (environ 5 minutes)
 
@@ -92,5 +95,6 @@ L'évaluation se basera sur 20 points, portant sur les compétences évaluées.
 Le versionnage progressif du code est obligatoire tout au long du projet.
 
 **Points bonus :**
+
 - Automatisation de la gestion des versions grâce à la convention de commit
 - Automatisation de la génération des Changelogs grâce à la convention de commit

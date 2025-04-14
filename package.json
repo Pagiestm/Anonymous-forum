@@ -1,0 +1,28 @@
+{
+  "name": "anonymous-forum",
+  "version": "1.0.0",
+  "description": "Ce projet vise à valider les compétences suivantes : - Création d'une image Docker - Mise en place d'un environnement de développement avec Docker Compose - Établissement d'une pipeline CI/CD sur Github - Accès à une image Docker sur un serveur distant via le Registry de Github - Utilisation des Networks et Volumes pour la persistance des données et la sécurité sur un serveur distant",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "echo \"No tests specified yet\" && exit 0"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "workspaces": [
+    "api",
+    "thread",
+    "sender"
+  ],
+  "devDependencies": {
+    "eslint": "^9.24.0",
+    "eslint-config-prettier": "^10.1.2",
+    "eslint-plugin-prettier": "^5.2.6",
+    "prettier": "^3.5.3"
+  }
+}
