@@ -7,7 +7,7 @@ services:
       MYSQL_DATABASE: forum
     volumes:
       - db_data:/var/lib/mysql
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - backend
     # healthcheck pour vérifier quand MySQL est prêt
