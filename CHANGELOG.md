@@ -1,5 +1,9 @@
 # Changelog
 
+## <small>1.0.2 (2025-04-15)</small>
+
+* docs(workflow): enhance deployment and release documentation ([68d611d](https://github.com/Pagiestm/Anonymous-forum/commit/68d611d))
+
 ## <small>1.0.1 (2025-04-15)</small>
 
 * fix(release): correct release type input handling and refine workflow triggers ([eb7c29a](https://github.com/Pagiestm/Anonymous-forum/commit/eb7c29a))
