@@ -1,6 +1,12 @@
 name: Create Release
 
 on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'CHANGELOG.md'
+      - 'package.json'
   workflow_dispatch:
     inputs:
       release_type:
@@ -17,7 +23,6 @@ jobs:
   release:
     name: Create Release
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
 
     steps:
       - name: Checkout repository
@@ -42,4 +47,4 @@ jobs:
       - name: Generate release and changelog
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run release:${{ github.event.inputs.release_type }} -- --ci
+        run: npm run release:${{ inputs.release_type || 'patch' }} -- --ci
