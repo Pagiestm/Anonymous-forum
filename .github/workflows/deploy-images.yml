@@ -1,6 +1,9 @@
 name: Create and publish Docker images
 
-on: push
+on:
+  push:
+    branches:
+      - develop
 
 env:
   REGISTRY: ghcr.io
