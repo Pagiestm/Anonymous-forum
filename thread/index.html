@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
@@ -33,25 +33,22 @@
     <div id="messages"></div>
 
     <script>
-      fetch("/api/messages")
-        .then((res) => res.json())
-        .then((data) => {
-          const container = document.getElementById("messages");
-          data.forEach((msg) => {
+      fetch('/api/messages')
+        .then(res => res.json())
+        .then(data => {
+          const container = document.getElementById('messages');
+          data.forEach(msg => {
             container.innerHTML += `
             <div class="message">
               <div class="pseudo">${msg.pseudo}</div>
               <div class="content">${msg.content}</div>
-              <div class="timestamp">${new Date(
-                msg.created_at
-              ).toLocaleString()}</div>
+              <div class="timestamp">${new Date(msg.created_at).toLocaleString()}</div>
             </div>
           `;
           });
         })
-        .catch((err) => {
-          document.getElementById("messages").innerText =
-            "Erreur de chargement des messages.";
+        .catch(err => {
+          document.getElementById('messages').innerText = 'Erreur de chargement des messages.';
         });
     </script>
   </body>

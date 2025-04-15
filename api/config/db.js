@@ -8,7 +8,7 @@ const db = mysql.createConnection({
   database: process.env.MYSQL_DATABASE || 'forum',
 });
 
-db.connect((err) => {
+db.connect(err => {
   if (err) {
     console.error('Erreur de connexion à la base de données :', err);
   } else {

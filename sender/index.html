@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
@@ -42,8 +42,8 @@
     </form>
 
     <script>
-      const form = document.getElementById("messageForm");
-      form.addEventListener("submit", async (e) => {
+      const form = document.getElementById('messageForm');
+      form.addEventListener('submit', async e => {
         e.preventDefault();
 
         const data = {
@@ -52,21 +52,21 @@
         };
 
         try {
-          const res = await fetch("/api/messages", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
+          const res = await fetch('/api/messages', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data),
           });
 
           if (res.ok) {
-            document.getElementById("status").innerText = "Message envoyé !";
+            document.getElementById('status').innerText = 'Message envoyé !';
             form.reset();
           } else {
             const err = await res.json();
-            document.getElementById("status").innerText = err.error || "Erreur";
+            document.getElementById('status').innerText = err.error || 'Erreur';
           }
         } catch (error) {
-          document.getElementById("status").innerText = "Erreur réseau";
+          document.getElementById('status').innerText = 'Erreur réseau';
         }
       });
     </script>
