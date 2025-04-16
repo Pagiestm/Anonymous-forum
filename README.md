@@ -110,51 +110,87 @@ Ce projet suit la convention [Conventional Commits](https://www.conventionalcomm
 - `test`: Ajout ou modification de tests
 - `chore`: Modifications du build, outils, etc.
 
-### Gestion manuelle des versions
+### Gestion automatisée des versions avec Release Please
 
-Bien que les versions et le changelog soient générés automatiquement via GitHub Actions, vous pouvez également effectuer ces opérations manuellement:
+Ce projet utilise Release Please pour automatiser la gestion des versions et la génération des changelogs basées sur les commits conventionnels.
 
 #### Création de commits conventionnels
 
-**Manuellement**: Structurez vos messages de commit selon la convention:
+Structurez vos messages de commit selon la convention:
 
 type(scope): message
 
 Exemple: `feat(api): ajouter l'endpoint pour trier les messages`
 
-Suivez les instructions pour choisir le type de commit, le scope, etc.
+Les types de commits déterminent automatiquement l'incrémentation de version:
 
-### Création manuelle d'une release
-
-1. Assurez-vous que votre code est à jour:
+- fix: → incrémente la version PATCH (1.0.0 → 1.0.1)
 
 ```
-git pull origin main
+fix(api): corriger la validation des champs vides
+
+Le serveur acceptait des messages avec des pseudos vides,
+ce qui causait des problèmes d'affichage.
 ```
 
-2. Générez la release en utilisant l'un des scripts suivants:
+- feat: → incrémente la version MINOR (1.0.0 → 1.1.0)
 
 ```
-# Pour une mise à jour mineure de correction (bugfix)
-npm run release:patch
+feat(thread): ajouter la pagination des messages
 
-# Pour l'ajout de nouvelles fonctionnalités
-npm run release:minor
-
-# Pour des changements majeurs incompatibles
-npm run release:major
-
-# Pour laisser release-it déterminer automatiquement le type de version
-npm run release
+Implémente une pagination avec 5 messages par page pour
+améliorer les performances et l'expérience utilisateur.
 ```
 
-3. Poussez les modifications (y compris les tags):
+- feat: avec BREAKING CHANGE: dans le corps → incrémente la version MAJOR (1.0.0 → 2.0.0)
 
 ```
-git push --follow-tags origin main
+feat(api): refondre l'API des messages
+
+BREAKING CHANGE: La structure de l'API a été modifiée.
+- GET /api/messages retourne maintenant un objet avec pagination
+- Les champs 'author' sont renommés en 'pseudo'
+- Format de date modifié de ISO à timestamp
 ```
 
-Cette action mettra à jour le numéro de version dans package.json, génèrera une entrée dans CHANGELOG.md, et créera un tag Git correspondant à la nouvelle version.
+- Autres types (docs, style, refactor, etc.) → n'incrémentent pas la version
+
+### Processus de release automatisé
+
+1. Quand vous poussez des commits sur la branche main, Release Please analyse les commits depuis la dernière release.
+
+2. Si des commits significatifs sont détectés (fix, feat ou BREAKING CHANGE), Release Please:
+
+- Crée automatiquement une pull request qui:
+  - Met à jour la version dans package.json
+  - Met à jour le CHANGELOG.md
+  - Prépare les autres fichiers nécessaires
+
+3. Pour finaliser la release:
+
+- Examinez et approuvez la pull request
+- Fusionnez-la dans la branche main
+- Release Please créera automatiquement:
+  - Un tag Git pour la nouvelle version
+  - Une release GitHub avec les notes de changements
+  - Déclenchera le workflow de déploiement
+
+### Forcer manuellement une release
+
+Dans de rares cas où vous devriez forcer manuellement une release, vous pouvez:
+
+1. Créer une pull request manuelle qui:
+
+- Met à jour la version dans package.json
+- Met à jour le CHANGELOG.md
+
+2. Une fois fusionnée, créez une release GitHub manuelle:
+
+- Accédez à la page "Releases" sur GitHub
+- Cliquez sur "Draft a new release"
+- Entrez le tag pour la version (par exemple v1.1.0)
+- Remplissez les notes de changements
+- Publiez la release
 
 ## Installation et démarrage
 
