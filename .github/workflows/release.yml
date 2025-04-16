@@ -1,93 +1,23 @@
-# ========================================================================
-# WORKFLOW: Création automatique de releases et génération des changelogs
-# ========================================================================
-# Ce workflow:
-# 1. Est déclenché manuellement ou lors d'un push sur main
-# 2. Analyse les commits conventionnels pour déterminer la version
-# 3. Met à jour la version dans package.json
-# 4. Génère automatiquement le CHANGELOG.md
-# 5. Crée une release GitHub avec les notes de changement
-# ========================================================================
-
-name: Create Release
+name: realease.yml
 
 on:
-  # Déclenchement automatique sur push dans main (sauf modifications CHANGELOG/package.json)
   push:
     branches:
       - main
-    paths-ignore:
-      - 'CHANGELOG.md' # Ignore les modifications du changelog (évite les boucles infinies)
-      - 'package.json' # Ignore les modifications de version (évite les boucles infinies)
 
-  # Déclenchement manuel avec choix du type de release
-  workflow_dispatch:
-    inputs:
-      release_type:
-        description: 'Type de release'
-        required: true
-        default: 'patch' # Version par défaut: correctif (x.y.Z)
-        type: choice
-        options:
-          - patch # Correctifs de bugs (x.y.Z)
-          - minor # Nouvelles fonctionnalités (x.Y.z)
-          - major # Changements majeurs incompatibles (X.y.z)
+permissions:
+  contents: write
+  pull-requests: write
 
 jobs:
   release:
-    name: Create Release
     runs-on: ubuntu-latest
-
     steps:
-      # Récupération du code source avec l'historique complet des commits
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Release Please
+        uses: googleapis/release-please-action@v4
         with:
-          fetch-depth: 0 # Important: récupère l'historique complet pour l'analyse des commits
-          token: ${{ secrets.GITHUB_TOKEN }} # Token pour l'accès et les modifications
-
-      # Installation de Node.js pour les outils de release
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20' # Version LTS de Node.js
-
-      # Installation des dépendances (notamment release-it et plugins)
-      - name: Install dependencies
-        run: npm install
-
-      # Configuration de Git pour les commits automatiques
-      - name: Configure Git
-        run: |
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
-      # Génération de la release et du changelog
-      # Utilisation de release-it qui:
-      # - Analyse les commits conventionnels
-      # - Détermine automatiquement la prochaine version
-      # - Met à jour le package.json
-      # - Met à jour le CHANGELOG.md
-      # - Crée un commit avec ces changements
-      # - Pousse les modifications et le tag
-      # - Crée une release GitHub
-      - name: Generate release and changelog
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Détecter les commits significatifs
-          SIGNIFICANT_COMMITS=$(git log --format="%s" $(git describe --tags --abbrev=0 2>/dev/null || echo "HEAD~100")..HEAD | grep -E "^(fix|feat|BREAKING CHANGE):" || echo "")
-
-          if [ -n "${{ inputs.release_type }}" ]; then
-            # Si un type de release est spécifié manuellement, l'utiliser
-            npm run release:${{ inputs.release_type }} -- --ci
-          elif [ -n "$SIGNIFICANT_COMMITS" ]; then
-            # Sinon, si des commits significatifs existent, utiliser le mode conventionnel
-            npm run release:conventional -- --ci
-          else
-            # Si aucun commit significatif et pas de type spécifié, faire un patch ou sauter
-            echo "No significant commits found, skipping release or using patch"
-            npm run release:patch -- --ci
-          fi
-        # Si déclenchement manuel: utilise le type spécifié, sinon utilise "patch"
-        # L'option --ci évite les interactions avec l'utilisateur
+          token: ${{ secrets.GITHUB_TOKEN }}
+          release-type: node

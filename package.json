@@ -9,11 +9,6 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "release": "release-it",
-    "release:patch": "release-it patch",
-    "release:minor": "release-it minor",
-    "release:major": "release-it major",
-    "release:conventional": "release-it",
     "prepare": "husky"
   },
   "keywords": [],
@@ -27,88 +22,10 @@
   "devDependencies": {
     "@commitlint/cli": "^19.8.0",
     "@commitlint/config-conventional": "^19.8.0",
-    "@release-it/conventional-changelog": "^10.0.0",
     "eslint": "^9.24.0",
     "eslint-config-prettier": "^10.1.2",
     "eslint-plugin-prettier": "^5.2.6",
     "husky": "^9.1.7",
-    "prettier": "^3.5.3",
-    "release-it": "^18.1.2"
-  },
-  "release-it": {
-    "$schema": "https://unpkg.com/release-it/schema/release-it.json",
-    "git": {
-      "commitMessage": "chore: release v${version}",
-      "tagName": "v${version}",
-      "requireCleanWorkingDir": false,
-      "commitArgs": "--no-verify"
-    },
-    "github": {
-      "release": true,
-      "releaseName": "Release ${version}"
-    },
-    "npm": {
-      "publish": false
-    },
-    "plugins": {
-      "@release-it/conventional-changelog": {
-        "preset": "angular",
-        "infile": "CHANGELOG.md",
-        "strictSemVer": true,
-        "types": [
-          {
-            "type": "feat",
-            "section": "Features"
-          },
-          {
-            "type": "fix",
-            "section": "Bug Fixes"
-          },
-          {
-            "type": "perf",
-            "section": "Performance Improvements"
-          },
-          {
-            "type": "revert",
-            "section": "Reverts"
-          },
-          {
-            "type": "docs",
-            "section": "Documentation",
-            "hidden": true
-          },
-          {
-            "type": "style",
-            "section": "Styles",
-            "hidden": true
-          },
-          {
-            "type": "chore",
-            "section": "Miscellaneous Chores",
-            "hidden": true
-          },
-          {
-            "type": "refactor",
-            "section": "Code Refactoring",
-            "hidden": true
-          },
-          {
-            "type": "test",
-            "section": "Tests",
-            "hidden": true
-          },
-          {
-            "type": "build",
-            "section": "Build System",
-            "hidden": true
-          },
-          {
-            "type": "ci",
-            "section": "Continuous Integration",
-            "hidden": true
-          }
-        ]
-      }
-    }
+    "prettier": "^3.5.3"
   }
 }
