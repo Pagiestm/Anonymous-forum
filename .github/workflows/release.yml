@@ -1,4 +1,4 @@
-name: realease.yml
+name: Release
 
 on:
   push:
@@ -8,6 +8,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  issues: write
 
 jobs:
   release:
@@ -15,9 +16,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Release Please
         uses: googleapis/release-please-action@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           release-type: node
+          package-name: anonymous-forum
