@@ -75,15 +75,19 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Check if we have any significant commits (fix, feat, BREAKING CHANGE)
+          # Détecter les commits significatifs
           SIGNIFICANT_COMMITS=$(git log --format="%s" $(git describe --tags --abbrev=0 2>/dev/null || echo "HEAD~100")..HEAD | grep -E "^(fix|feat|BREAKING CHANGE):" || echo "")
 
-          if [ -n "$SIGNIFICANT_COMMITS" ] || [ "${{ inputs.release_type }}" != "" ]; then
-            # Si commits significatifs OU déclenchement manuel
-            npm run release:${{ inputs.release_type || 'patch' }} -- --ci
+          if [ -n "${{ inputs.release_type }}" ]; then
+            # Si un type de release est spécifié manuellement, l'utiliser
+            npm run release:${{ inputs.release_type }} -- --ci
+          elif [ -n "$SIGNIFICANT_COMMITS" ]; then
+            # Sinon, si des commits significatifs existent, utiliser le mode conventionnel
+            npm run release:conventional -- --ci
           else
-            echo "No version-impacting commits found, skipping release"
-            exit 0
+            # Si aucun commit significatif et pas de type spécifié, faire un patch ou sauter
+            echo "No significant commits found, skipping release or using patch"
+            npm run release:patch -- --ci
           fi
         # Si déclenchement manuel: utilise le type spécifié, sinon utilise "patch"
         # L'option --ci évite les interactions avec l'utilisateur

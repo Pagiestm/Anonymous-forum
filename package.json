@@ -13,6 +13,7 @@
     "release:patch": "release-it patch",
     "release:minor": "release-it minor",
     "release:major": "release-it major",
+    "release:conventional": "release-it",
     "prepare": "husky"
   },
   "keywords": [],
