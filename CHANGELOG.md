@@ -1,5 +1,9 @@
 # Changelog
 
+## <small>1.0.3 (2025-04-16)</small>
+
+* feat: enhance release workflow and improve frontend UI with responsive design ([4280310](https://github.com/Pagiestm/Anonymous-forum/commit/4280310))
+
 ## <small>1.0.2 (2025-04-15)</small>
 
 * docs(workflow): enhance deployment and release documentation ([68d611d](https://github.com/Pagiestm/Anonymous-forum/commit/68d611d))
