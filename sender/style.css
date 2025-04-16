@@ -1,0 +1,202 @@
+:root {
+  --gradient-bg: linear-gradient(135deg, #ff9a9e, #fad0c4);
+  --bubble1-color: #fcb045;
+  --bubble2-color: #833ab4;
+  --card-bg: white;
+  --primary-color: #3b0764;
+  --accent-color: #7e22ce;
+  --highlight-color: #ff6ec4;
+  --text-light: #777;
+  --shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+}
+
+html,
+body {
+  overflow: hidden;
+}
+
+body {
+  margin: 0;
+  font-family: 'Fredoka', sans-serif;
+  background: var(--gradient-bg);
+  height: 100vh;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+/* 🎈 Background bubbles */
+.bubble-background::before,
+.bubble-background::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  z-index: 0;
+  opacity: 0.3;
+}
+
+.bubble-background::before {
+  width: 250px;
+  height: 250px;
+  background: var(--bubble1-color);
+  top: -50px;
+  left: -80px;
+}
+
+.bubble-background::after {
+  width: 200px;
+  height: 200px;
+  background: var(--bubble2-color);
+  bottom: -50px;
+  right: -50px;
+}
+
+.wrapper {
+  position: relative;
+  z-index: 10;
+  max-width: 500px;
+  width: 100%;
+}
+
+.fun-card {
+  background: var(--card-bg);
+  padding: 2rem;
+  border-radius: 1.5rem;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  animation: popIn 0.6s ease-out;
+  height: 600px;
+  overflow: hidden;
+}
+
+@keyframes popIn {
+  0% {
+    transform: scale(0.8) rotate(-5deg);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+h1 {
+  font-size: 1.8rem;
+  color: var(--primary-color);
+  text-align: center;
+  margin-bottom: 0.3rem;
+}
+
+input,
+textarea {
+  padding: 1rem;
+  border: 2px solid #ddd;
+  border-radius: 1rem;
+  font-size: 1rem;
+  transition: all 0.3s;
+  background-color: #fdfdfd;
+}
+
+input:focus,
+textarea:focus {
+  border-color: var(--highlight-color);
+  box-shadow: 0 0 0 4px rgba(255, 110, 196, 0.2);
+  outline: none;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 100px;
+  flex: 1;
+}
+
+button {
+  background: linear-gradient(to right, var(--highlight-color), #7873f5);
+  color: white;
+  font-size: 1.1rem;
+  font-weight: 600;
+  padding: 1rem;
+  border: none;
+  border-radius: 1rem;
+  cursor: pointer;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+  margin-top: auto;
+}
+
+button:hover {
+  transform: translateY(-3px) scale(1.03);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+}
+
+#status {
+  text-align: center;
+  font-weight: 500;
+  min-height: 1.2rem;
+  transition: 0.3s ease;
+  font-size: 0.9rem;
+}
+
+.success {
+  color: #10b981;
+  animation: messageAppear 0.5s ease-out forwards;
+}
+
+.error {
+  color: #ef4444;
+  animation: messageAppear 0.5s ease-out forwards;
+}
+
+@keyframes messageAppear {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.cta-link {
+  margin-top: 0.2rem;
+  text-align: center;
+  display: block;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: var(--accent-color);
+  transition: all 0.3s ease;
+  padding: 0.5rem 0;
+}
+
+.cta-link:hover {
+  color: #a855f7;
+  transform: scale(1.05) rotate(-1deg);
+}
+
+@media (max-width: 768px) {
+  body {
+    padding: 1.5rem;
+  }
+
+  .fun-card {
+    padding: 1.5rem;
+    height: 550px;
+  }
+
+  h1 {
+    font-size: 1.6rem;
+  }
+}
+
+@media (max-height: 700px) {
+  .fun-card {
+    height: 500px;
+  }
+}
