@@ -1,5 +1,9 @@
 # Changelog
 
+## <small>1.0.4 (2025-04-16)</small>
+
+* feat(release): improve release logic to handle significant commits and manual release types ([29bfac4](https://github.com/Pagiestm/Anonymous-forum/commit/29bfac4))
+
 ## <small>1.0.3 (2025-04-16)</small>
 
 * feat: enhance release workflow and improve frontend UI with responsive design ([4280310](https://github.com/Pagiestm/Anonymous-forum/commit/4280310))
