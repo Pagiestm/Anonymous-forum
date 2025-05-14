@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.1](https://github.com/Pagiestm/Anonymous-forum/compare/v1.1.0...v1.1.1) (2025-05-14)
+
+
+### Bug Fixes
+
+* remove unnecessary padding from body in style.css ([714b9cd](https://github.com/Pagiestm/Anonymous-forum/commit/714b9cdcc446f7a4608071710bdc02a2039313f3))
+* remove unnecessary padding from body in style.css ([f886b58](https://github.com/Pagiestm/Anonymous-forum/commit/f886b589968f2fb4790ad342effebbba524771f6))
+
 ## [1.1.0](https://github.com/Pagiestm/Anonymous-forum/compare/v1.0.4...v1.1.0) (2025-04-16)
 
 
