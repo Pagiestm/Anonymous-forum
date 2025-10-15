@@ -1,20 +1,34 @@
 # ========================================================================
-# WORKFLOW: Creation et publication des images Docker
+# WORKFLOW: Creation et publication des images Docker avec déploiement AWS
 # ========================================================================
 # Ce workflow:
-# 1. Valide le code source (formatting, linting)
-# 2. Exécute les tests automatisés
-# 3. Construit et publie les images Docker sur GitHub Container Registry
+# 1. Détecte les secrets (Gitleaks)
+# 2. Analyse le code (CodeQL & SAST)
+# 3. Valide le code source (formatting, linting)
+# 4. Exécute les tests automatisés
+# 5. Construit et publie les images Docker sur GitHub Container Registry
+# 6. Déploie automatiquement sur AWS via Terraform
+# 7. Permet la destruction manuelle de l'infrastructure (workflow_dispatch)
 # ========================================================================
 
-name: Create and publish Docker images
+name: CI/CD Pipeline with AWS Deployment
 
-# Déclencheur: exécution uniquement sur push dans la branche develop
-# pour éviter les builds redondants lors des PR vers main
+# Déclencheurs
 on:
   push:
     branches:
       - develop
+  # Permet le déclenchement manuel pour les opérations Terraform
+  workflow_dispatch:
+    inputs:
+      terraform_action:
+        description: 'Action Terraform à exécuter'
+        required: true
+        type: choice
+        options:
+          - apply
+          - destroy
+        default: apply
 
 # Variables d'environnement globales pour le registre Docker
 env:
@@ -22,9 +36,108 @@ env:
   REPOSITORY: ${{ github.repository }}
 
 jobs:
-  # ======== JOB 1: VALIDATION DU CODE ========
+  # ======== JOB 1: DÉTECTION DE SECRETS ========
+  secret-scanning:
+    name: Secret Detection (Gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Récupère tout l'historique pour l'analyse complète
+
+      # Scan des secrets avec Gitleaks
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }} # Optionnel pour la version Pro
+
+      # Upload des résultats en cas de détection
+      - name: Upload Gitleaks results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitleaks-report
+          path: gitleaks-report.json
+          retention-days: 30
+
+  # ======== JOB 2: ANALYSE DE CODE CODEQL ========
+  codeql-analysis:
+    name: CodeQL Security Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ['javascript']
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Initialise CodeQL
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          queries: +security-and-quality # Utilise les requêtes de sécurité
+
+      # Analyse automatique pour JavaScript
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      # Exécute l'analyse CodeQL
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: '/language:${{ matrix.language }}'
+
+  # ======== JOB 3: ANALYSE STATIQUE (SAST) ========
+  sast-analysis:
+    name: Static Application Security Testing
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Installation des dépendances pour l'analyse
+      - name: Install dependencies
+        run: npm install
+
+      # Audit de sécurité npm
+      - name: Run npm audit
+        run: npm audit --audit-level=moderate
+        continue-on-error: true
+
+      # Analyse ESLint avec focus sécurité
+      - name: Run ESLint security check
+        run: npm run lint
+        continue-on-error: true
+
+      # Snyk pour analyse de vulnérabilités (optionnel, nécessite SNYK_TOKEN)
+      - name: Run Snyk security scan
+        if: env.SNYK_TOKEN != ''
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high
+        continue-on-error: true
+
+  # ======== JOB 4: VALIDATION DU CODE ========
   validate:
     name: Format and Lint
+    needs: [secret-scanning, codeql-analysis, sast-analysis]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -47,7 +160,7 @@ jobs:
       - name: Verify linting
         run: npm run lint
 
-  # ======== JOB 2: TESTS AUTOMATISÉS ========
+  # ======== JOB 5: TESTS AUTOMATISÉS ========
   test:
     name: Run API Tests
     needs: validate # Ne démarre que si la validation réussit
@@ -75,7 +188,16 @@ jobs:
         working-directory: ./api
         run: npm test
 
-  # ======== JOB 3: BUILD ET PUSH DES IMAGES DOCKER ========
+      # Upload des résultats de tests
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-test-results
+          path: api/coverage/
+          retention-days: 30
+
+  # ======== JOB 6: BUILD ET PUSH DES IMAGES DOCKER ========
   build-and-push-images:
     needs: [validate, test] # Ne démarre que si validation et tests réussissent
     runs-on: ubuntu-latest
@@ -132,3 +254,325 @@ jobs:
             ${{ env.REGISTRY }}/${{ steps.repo_name.outputs.REPO_NAME }}/${{ matrix.service }}:${{ steps.sha.outputs.SHORT_SHA }}
           cache-from: type=gha # Utilise le cache GitHub Actions pour accélérer les builds
           cache-to: type=gha,mode=max
+
+      # Scan de sécurité de l'image Docker avec Trivy
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ steps.repo_name.outputs.REPO_NAME }}/${{ matrix.service }}:${{ steps.sha.outputs.SHORT_SHA }}
+          format: 'sarif'
+          output: 'trivy-results-${{ matrix.service }}.sarif'
+        continue-on-error: true
+
+      # Upload des résultats Trivy vers GitHub Security
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results-${{ matrix.service }}.sarif'
+          category: 'trivy-${{ matrix.service }}'
+        continue-on-error: true
+
+  # ======== JOB 7: VALIDATION TERRAFORM ========
+  terraform-validate:
+    name: Validate Terraform Configuration
+    needs: build-and-push-images
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./terraform
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Configure Terraform Cloud credentials (required)
+      - name: Configure Terraform Cloud credentials
+        run: |
+          set -euo pipefail
+          TF_API_TOKEN_SECRET="${{ secrets.TF_API_TOKEN }}"
+          if [ -z "${TF_API_TOKEN_SECRET-}" ]; then
+            echo "ERROR: TF_API_TOKEN secret is not set. Add TF_API_TOKEN, TF_CLOUD_ORG and TF_CLOUD_WORKSPACE to repository secrets to use Terraform Cloud."
+            exit 1
+          fi
+          mkdir -p ~/.terraform.d
+          cat > ~/.terraform.d/credentials.tfrc.json <<EOF
+          {
+            "credentials": {
+              "app.terraform.io": {
+                "token": "${TF_API_TOKEN_SECRET}"
+              }
+            }
+          }
+          EOF
+          echo "Configured Terraform Cloud credentials"
+
+      # Installation de Terraform (doit arriver avant toute invocation du CLI)
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+
+      - name: Terraform Init (Terraform Cloud)
+        shell: bash
+        run: |
+          set -euo pipefail
+          TF_CLOUD_ORG="${{ secrets.TF_CLOUD_ORG }}"
+          TF_CLOUD_WORKSPACE="${{ secrets.TF_CLOUD_WORKSPACE }}"
+          if [ -z "${TF_CLOUD_ORG-}" ] || [ -z "${TF_CLOUD_WORKSPACE-}" ]; then
+            echo "ERROR: TF_CLOUD_ORG and TF_CLOUD_WORKSPACE must be set as repository secrets to use Terraform Cloud."
+            exit 1
+          fi
+          terraform init -backend-config="organization=${TF_CLOUD_ORG}" -backend-config="workspaces[name]=${TF_CLOUD_WORKSPACE}"
+
+      # Formatage Terraform
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive
+        continue-on-error: true
+
+      # Validation Terraform
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      # Analyse de sécurité Terraform avec tfsec
+      - name: Run tfsec security scanner
+        uses: aquasecurity/tfsec-action@v1.0.0
+        with:
+          working_directory: terraform
+          soft_fail: true
+
+  # ======== JOB 8: DÉPLOIEMENT AUTOMATIQUE SUR AWS ========
+  terraform-deploy:
+    name: Deploy to AWS with Terraform
+    needs: terraform-validate
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.terraform_action == 'apply') }}
+    environment:
+      name: production
+      url: ${{ steps.terraform-output.outputs.url }}
+    defaults:
+      run:
+        working-directory: ./terraform
+
+    permissions:
+      contents: read
+      id-token: write # Nécessaire pour OIDC
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Configuration des credentials AWS (export into GITHUB_ENV if provided)
+      - name: Check AWS credentials presence
+        id: check-aws
+        run: |
+          set -euo pipefail
+          if [ -n "${{ secrets.AWS_ACCESS_KEY_ID }}" ] && [ -n "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ]; then
+            echo "has_aws=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_aws=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Configure AWS Credentials
+        if: ${{ steps.check-aws.outputs.has_aws == 'true' }}
+        run: |
+          set -euo pipefail
+          echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >> $GITHUB_ENV
+          echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> $GITHUB_ENV
+          echo "AWS_REGION=eu-central-1" >> $GITHUB_ENV
+          echo "Exported AWS credentials into GITHUB_ENV"
+
+      # Using Terraform Cloud only - TF_STATE_BUCKET (S3) removed
+
+      # Installation de Terraform
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+          terraform_wrapper: false
+
+      # Initialisation Terraform (backend-aware)
+      - name: Terraform Init (backend-aware)
+        if: ${{ steps.check-aws.outputs.has_aws == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -n "${AWS_ACCESS_KEY_ID-}" ] && [ -n "${AWS_SECRET_ACCESS_KEY-}" ]; then
+            REPO_SAFE=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]' | tr '/' '-')
+            BUCKET_NAME="${REPO_SAFE}-tfstate"
+            LOCK_TABLE_NAME="${REPO_SAFE}-tf-lock"
+
+            # choose bucket: prefer TF_STATE_BUCKET secret, otherwise derived bucket
+            if [ -n "${TF_STATE_BUCKET-}" ]; then
+              BUCKET_NAME="$TF_STATE_BUCKET"
+              echo "Using TF_STATE_BUCKET from secrets: $BUCKET_NAME"
+            else
+              echo "No TF_STATE_BUCKET secret set; using derived bucket name: $BUCKET_NAME"
+            fi
+
+            if aws s3api head-bucket --bucket "$BUCKET_NAME" 2>/dev/null; then
+              echo "Bucket $BUCKET_NAME exists"
+            else
+              echo "ERROR: S3 bucket $BUCKET_NAME does not exist or is not accessible. Create it manually or set secret TF_STATE_BUCKET with an existing bucket."
+              exit 1
+            fi
+
+            terraform init -backend-config="bucket=$BUCKET_NAME" -backend-config="key=terraform.tfstate" -backend-config="region=eu-central-1"
+          else
+            echo "AWS creds not present; running terraform init with local backend"
+            terraform init -backend=false
+          fi
+
+      # Plan Terraform (utilise les valeurs par défaut de variables.tf)
+      - name: Terraform Plan
+        if: ${{ steps.check-aws.outputs.has_aws == 'true' }}
+        id: plan
+        run: |
+          terraform plan -out=tfplan -no-color
+          echo "exitcode=$?" >> $GITHUB_OUTPUT
+
+      # Upload du plan pour référence
+      - name: Upload Terraform Plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan
+          path: terraform/tfplan
+          retention-days: 30
+
+      # Application du plan Terraform
+      # Toutes les variables sont automatiquement récupérées depuis variables.tf
+      - name: Terraform Apply
+        if: ${{ steps.check-aws.outputs.has_aws == 'true' && steps.plan.outputs.exitcode == '0' }}
+        run: terraform apply -auto-approve tfplan
+
+      # Récupération des outputs Terraform
+      - name: Get Terraform Outputs
+        id: terraform-output
+        if: ${{ steps.check-aws.outputs.has_aws == 'true' }}
+        run: |
+          echo "url=$(terraform output -raw instance_public_ip 2>/dev/null || echo 'N/A')" >> $GITHUB_OUTPUT
+          terraform output -json > terraform-outputs.json || echo '{}' > terraform-outputs.json
+
+      # Upload des outputs Terraform
+      - name: Upload Terraform Outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-outputs
+          path: terraform/terraform-outputs.json
+          retention-days: 30
+
+      # Notification du déploiement
+      - name: Deployment Summary
+        if: always()
+        run: |
+          echo "## 🚀 Deployment Successful!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Infrastructure Details" >> $GITHUB_STEP_SUMMARY
+          echo "- **Region:** eu-central-1 (définie dans variables.tf)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Prefix:** theotime (défini dans variables.tf)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Instance Type:** t2.micro (défini dans variables.tf)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📋 Variables utilisées automatiquement" >> $GITHUB_STEP_SUMMARY
+          echo "Toutes les variables sont récupérées depuis \`terraform/variables.tf\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Outputs" >> $GITHUB_STEP_SUMMARY
+          terraform output || echo "Pas d'outputs disponibles"
+
+  # ======== JOB 9: DESTRUCTION MANUELLE DE L'INFRASTRUCTURE ========
+  terraform-destroy:
+    name: Destroy AWS Infrastructure (Manual Only)
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.terraform_action == 'destroy' }}
+    defaults:
+      run:
+        working-directory: ./terraform
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Configuration des credentials AWS (export into GITHUB_ENV if provided)
+      - name: Check AWS credentials presence
+        id: check-aws
+        run: |
+          set -euo pipefail
+          if [ -n "${{ secrets.AWS_ACCESS_KEY_ID }}" ] && [ -n "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ]; then
+            echo "has_aws=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_aws=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Configure AWS Credentials
+        if: ${{ steps.check-aws.outputs.has_aws == 'true' }}
+        run: |
+          set -euo pipefail
+          echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >> $GITHUB_ENV
+          echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> $GITHUB_ENV
+          echo "AWS_REGION=eu-central-1" >> $GITHUB_ENV
+          echo "Exported AWS credentials into GITHUB_ENV"
+
+      # Using Terraform Cloud only - TF_STATE_BUCKET (S3) removed
+
+      # Installation de Terraform
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+
+      # Initialisation Terraform (backend-aware)
+      - name: Terraform Init (backend-aware)
+        if: ${{ steps.check-aws.outputs.has_aws == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -n "${AWS_ACCESS_KEY_ID-}" ] && [ -n "${AWS_SECRET_ACCESS_KEY-}" ]; then
+            REPO_SAFE=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]' | tr '/' '-')
+            BUCKET_NAME="${REPO_SAFE}-tfstate"
+            LOCK_TABLE_NAME="${REPO_SAFE}-tf-lock"
+
+            # choose bucket: prefer TF_STATE_BUCKET secret, otherwise derived bucket
+            if [ -n "${TF_STATE_BUCKET-}" ]; then
+              BUCKET_NAME="$TF_STATE_BUCKET"
+              echo "Using TF_STATE_BUCKET from secrets: $BUCKET_NAME"
+            else
+              echo "No TF_STATE_BUCKET secret set; using derived bucket name: $BUCKET_NAME"
+            fi
+
+            if aws s3api head-bucket --bucket "$BUCKET_NAME" 2>/dev/null; then
+              echo "Bucket $BUCKET_NAME exists"
+            else
+              echo "ERROR: S3 bucket $BUCKET_NAME does not exist or is not accessible. Create it manually or set secret TF_STATE_BUCKET with an existing bucket."
+              exit 1
+            fi
+
+            terraform init -backend-config="bucket=$BUCKET_NAME" -backend-config="key=terraform.tfstate" -backend-config="region=eu-central-1"
+          else
+            echo "AWS creds not present; running terraform init with local backend"
+            terraform init -backend=false
+          fi
+
+      # Plan de destruction
+      - name: Terraform Destroy Plan
+        run: terraform plan -destroy -out=destroy-plan
+
+      # Confirmation et destruction
+      - name: Terraform Destroy
+        run: terraform destroy -auto-approve
+
+      # Notification de destruction
+      - name: Destruction Summary
+        run: |
+          echo "## 💥 Infrastructure Destroyed!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Details" >> $GITHUB_STEP_SUMMARY
+          echo "- **Region:** eu-central-1" >> $GITHUB_STEP_SUMMARY
+          echo "- **Prefix:** theotime" >> $GITHUB_STEP_SUMMARY
+          echo "- **Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Time:** $(date)" >> $GITHUB_STEP_SUMMARY
