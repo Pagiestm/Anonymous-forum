@@ -54,6 +54,8 @@ services:
       - '80:80'
     depends_on:
       - api
+    environment:
+      API_HOST: forum-api:3000
     networks:
       - frontend
       - backend
@@ -65,6 +67,8 @@ services:
       - '8080:80'
     depends_on:
       - api
+    environment:
+      API_HOST: forum-api:3000
     networks:
       - frontend
       - backend
