@@ -24,8 +24,10 @@ locals {
       -p 3306:3306 \
       -e MYSQL_ROOT_PASSWORD=forumroot \
       -e MYSQL_DATABASE=forum \
+      -e MYSQL_ROOT_HOST=% \
       -v /home/ec2-user/mysql/data:/var/lib/mysql \
-      mysql:8
+      mysql:8 \
+      --default-authentication-plugin=mysql_native_password
     sleep 30
     echo "MySQL started successfully" > /home/ec2-user/db-status.txt
   EOF
@@ -41,10 +43,11 @@ locals {
       --name forum-api \
       --restart always \
       -p 3000:3000 \
-      -e DB_HOST=${aws_instance.db.private_ip} \
-      -e DB_USER=root \
-      -e DB_PASSWORD=forumroot \
-      -e DB_NAME=forum \
+      -e MYSQL_HOST=${aws_instance.db.private_ip} \
+      -e MYSQL_PORT=3306 \
+      -e MYSQL_USER=root \
+      -e MYSQL_PASSWORD=forumroot \
+      -e MYSQL_DATABASE=forum \
       forum-api
     echo "API started successfully" > /home/ec2-user/api-status.txt
   EOF

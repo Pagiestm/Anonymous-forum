@@ -25,9 +25,9 @@ output "forum_access" {
 output "deployment_info" {
   description = "Informations de déploiement"
   value = {
-    region        = var.aws_region
-    api_ip        = aws_instance.api.public_ip
-    thread_ip     = aws_instance.thread.public_ip
-    sender_ip     = aws_instance.sender.public_ip
+    region    = var.aws_region
+    api_ip    = aws_instance.api.public_ip
+    thread_ip = aws_instance.thread.public_ip
+    sender_ip = aws_instance.sender.public_ip
   }
 }

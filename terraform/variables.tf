@@ -10,7 +10,7 @@ variable "student_prefix" {
 
 variable "instance_type" {
   type    = string
-  default = "t2.nano"
+  default = "t2.micro"
 }
 
 variable "ssh_cidr" {
