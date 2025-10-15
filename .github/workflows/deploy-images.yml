@@ -363,19 +363,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Configuration des credentials AWS (export into GITHUB_ENV if provided)
-      - name: Check AWS credentials presence
-        id: check-aws
-        run: |
-          set -euo pipefail
-          if [ -n "${{ secrets.AWS_ACCESS_KEY_ID }}" ] && [ -n "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ]; then
-            echo "has_aws=true" >> $GITHUB_OUTPUT
-          else
-            echo "has_aws=false" >> $GITHUB_OUTPUT
-          fi
-
+      # Configure AWS Credentials (for provider, not backend)
       - name: Configure AWS Credentials
-        if: ${{ steps.check-aws.outputs.has_aws == 'true' }}
         run: |
           set -euo pipefail
           echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >> $GITHUB_ENV
@@ -383,7 +372,26 @@ jobs:
           echo "AWS_REGION=eu-central-1" >> $GITHUB_ENV
           echo "Exported AWS credentials into GITHUB_ENV"
 
-      # Using Terraform Cloud only - TF_STATE_BUCKET (S3) removed
+      # Configure Terraform Cloud credentials
+      - name: Configure Terraform Cloud credentials
+        run: |
+          set -euo pipefail
+          TF_API_TOKEN_SECRET="${{ secrets.TF_API_TOKEN }}"
+          if [ -z "${TF_API_TOKEN_SECRET-}" ]; then
+            echo "ERROR: TF_API_TOKEN secret is not set. Add TF_API_TOKEN, TF_CLOUD_ORG and TF_CLOUD_WORKSPACE to repository secrets."
+            exit 1
+          fi
+          mkdir -p ~/.terraform.d
+          cat > ~/.terraform.d/credentials.tfrc.json <<EOF
+          {
+            "credentials": {
+              "app.terraform.io": {
+                "token": "${TF_API_TOKEN_SECRET}"
+              }
+            }
+          }
+          EOF
+          echo "Configured Terraform Cloud credentials"
 
       # Installation de Terraform
       - name: Setup Terraform
@@ -392,41 +400,21 @@ jobs:
           terraform_version: 1.6.0
           terraform_wrapper: false
 
-      # Initialisation Terraform (backend-aware)
-      - name: Terraform Init (backend-aware)
-        if: ${{ steps.check-aws.outputs.has_aws == 'true' }}
+      # Initialisation Terraform avec Terraform Cloud backend
+      - name: Terraform Init (Terraform Cloud)
         shell: bash
         run: |
           set -euo pipefail
-          if [ -n "${AWS_ACCESS_KEY_ID-}" ] && [ -n "${AWS_SECRET_ACCESS_KEY-}" ]; then
-            REPO_SAFE=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]' | tr '/' '-')
-            BUCKET_NAME="${REPO_SAFE}-tfstate"
-            LOCK_TABLE_NAME="${REPO_SAFE}-tf-lock"
-
-            # choose bucket: prefer TF_STATE_BUCKET secret, otherwise derived bucket
-            if [ -n "${TF_STATE_BUCKET-}" ]; then
-              BUCKET_NAME="$TF_STATE_BUCKET"
-              echo "Using TF_STATE_BUCKET from secrets: $BUCKET_NAME"
-            else
-              echo "No TF_STATE_BUCKET secret set; using derived bucket name: $BUCKET_NAME"
-            fi
-
-            if aws s3api head-bucket --bucket "$BUCKET_NAME" 2>/dev/null; then
-              echo "Bucket $BUCKET_NAME exists"
-            else
-              echo "ERROR: S3 bucket $BUCKET_NAME does not exist or is not accessible. Create it manually or set secret TF_STATE_BUCKET with an existing bucket."
-              exit 1
-            fi
-
-            terraform init -backend-config="bucket=$BUCKET_NAME" -backend-config="key=terraform.tfstate" -backend-config="region=eu-central-1"
-          else
-            echo "AWS creds not present; running terraform init with local backend"
-            terraform init -backend=false
+          TF_CLOUD_ORG="${{ secrets.TF_CLOUD_ORG }}"
+          TF_CLOUD_WORKSPACE="${{ secrets.TF_CLOUD_WORKSPACE }}"
+          if [ -z "${TF_CLOUD_ORG-}" ] || [ -z "${TF_CLOUD_WORKSPACE-}" ]; then
+            echo "ERROR: TF_CLOUD_ORG and TF_CLOUD_WORKSPACE must be set as repository secrets."
+            exit 1
           fi
+          terraform init -backend-config="organization=${TF_CLOUD_ORG}" -backend-config="workspaces[name]=${TF_CLOUD_WORKSPACE}"
 
       # Plan Terraform (utilise les valeurs par défaut de variables.tf)
       - name: Terraform Plan
-        if: ${{ steps.check-aws.outputs.has_aws == 'true' }}
         id: plan
         run: |
           terraform plan -out=tfplan -no-color
@@ -443,13 +431,12 @@ jobs:
       # Application du plan Terraform
       # Toutes les variables sont automatiquement récupérées depuis variables.tf
       - name: Terraform Apply
-        if: ${{ steps.check-aws.outputs.has_aws == 'true' && steps.plan.outputs.exitcode == '0' }}
+        if: ${{ steps.plan.outputs.exitcode == '0' }}
         run: terraform apply -auto-approve tfplan
 
       # Récupération des outputs Terraform
       - name: Get Terraform Outputs
         id: terraform-output
-        if: ${{ steps.check-aws.outputs.has_aws == 'true' }}
         run: |
           echo "url=$(terraform output -raw instance_public_ip 2>/dev/null || echo 'N/A')" >> $GITHUB_OUTPUT
           terraform output -json > terraform-outputs.json || echo '{}' > terraform-outputs.json
@@ -498,19 +485,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Configuration des credentials AWS (export into GITHUB_ENV if provided)
-      - name: Check AWS credentials presence
-        id: check-aws
-        run: |
-          set -euo pipefail
-          if [ -n "${{ secrets.AWS_ACCESS_KEY_ID }}" ] && [ -n "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ]; then
-            echo "has_aws=true" >> $GITHUB_OUTPUT
-          else
-            echo "has_aws=false" >> $GITHUB_OUTPUT
-          fi
-
+      # Configure AWS Credentials (for provider, not backend)
       - name: Configure AWS Credentials
-        if: ${{ steps.check-aws.outputs.has_aws == 'true' }}
         run: |
           set -euo pipefail
           echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >> $GITHUB_ENV
@@ -518,7 +494,26 @@ jobs:
           echo "AWS_REGION=eu-central-1" >> $GITHUB_ENV
           echo "Exported AWS credentials into GITHUB_ENV"
 
-      # Using Terraform Cloud only - TF_STATE_BUCKET (S3) removed
+      # Configure Terraform Cloud credentials
+      - name: Configure Terraform Cloud credentials
+        run: |
+          set -euo pipefail
+          TF_API_TOKEN_SECRET="${{ secrets.TF_API_TOKEN }}"
+          if [ -z "${TF_API_TOKEN_SECRET-}" ]; then
+            echo "ERROR: TF_API_TOKEN secret is not set."
+            exit 1
+          fi
+          mkdir -p ~/.terraform.d
+          cat > ~/.terraform.d/credentials.tfrc.json <<EOF
+          {
+            "credentials": {
+              "app.terraform.io": {
+                "token": "${TF_API_TOKEN_SECRET}"
+              }
+            }
+          }
+          EOF
+          echo "Configured Terraform Cloud credentials"
 
       # Installation de Terraform
       - name: Setup Terraform
@@ -526,37 +521,18 @@ jobs:
         with:
           terraform_version: 1.6.0
 
-      # Initialisation Terraform (backend-aware)
-      - name: Terraform Init (backend-aware)
-        if: ${{ steps.check-aws.outputs.has_aws == 'true' }}
+      # Initialisation Terraform avec Terraform Cloud backend
+      - name: Terraform Init (Terraform Cloud)
         shell: bash
         run: |
           set -euo pipefail
-          if [ -n "${AWS_ACCESS_KEY_ID-}" ] && [ -n "${AWS_SECRET_ACCESS_KEY-}" ]; then
-            REPO_SAFE=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]' | tr '/' '-')
-            BUCKET_NAME="${REPO_SAFE}-tfstate"
-            LOCK_TABLE_NAME="${REPO_SAFE}-tf-lock"
-
-            # choose bucket: prefer TF_STATE_BUCKET secret, otherwise derived bucket
-            if [ -n "${TF_STATE_BUCKET-}" ]; then
-              BUCKET_NAME="$TF_STATE_BUCKET"
-              echo "Using TF_STATE_BUCKET from secrets: $BUCKET_NAME"
-            else
-              echo "No TF_STATE_BUCKET secret set; using derived bucket name: $BUCKET_NAME"
-            fi
-
-            if aws s3api head-bucket --bucket "$BUCKET_NAME" 2>/dev/null; then
-              echo "Bucket $BUCKET_NAME exists"
-            else
-              echo "ERROR: S3 bucket $BUCKET_NAME does not exist or is not accessible. Create it manually or set secret TF_STATE_BUCKET with an existing bucket."
-              exit 1
-            fi
-
-            terraform init -backend-config="bucket=$BUCKET_NAME" -backend-config="key=terraform.tfstate" -backend-config="region=eu-central-1"
-          else
-            echo "AWS creds not present; running terraform init with local backend"
-            terraform init -backend=false
+          TF_CLOUD_ORG="${{ secrets.TF_CLOUD_ORG }}"
+          TF_CLOUD_WORKSPACE="${{ secrets.TF_CLOUD_WORKSPACE }}"
+          if [ -z "${TF_CLOUD_ORG-}" ] || [ -z "${TF_CLOUD_WORKSPACE-}" ]; then
+            echo "ERROR: TF_CLOUD_ORG and TF_CLOUD_WORKSPACE must be set as repository secrets."
+            exit 1
           fi
+          terraform init -backend-config="organization=${TF_CLOUD_ORG}" -backend-config="workspaces[name]=${TF_CLOUD_WORKSPACE}"
 
       # Plan de destruction
       - name: Terraform Destroy Plan
