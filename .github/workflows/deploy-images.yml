@@ -71,12 +71,12 @@ jobs:
       actions: read
       contents: read
       security-events: write
-    
+
     strategy:
       fail-fast: false
       matrix:
         language: ['javascript']
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -96,7 +96,7 @@ jobs:
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
         with:
-          category: "/language:${{ matrix.language }}"
+          category: '/language:${{ matrix.language }}'
 
   # ======== JOB 3: ANALYSE STATIQUE (SAST) ========
   sast-analysis:
@@ -282,7 +282,7 @@ jobs:
     defaults:
       run:
         working-directory: ./terraform
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -325,11 +325,11 @@ jobs:
     defaults:
       run:
         working-directory: ./terraform
-    
+
     permissions:
       contents: read
       id-token: write # Nécessaire pour OIDC
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -411,11 +411,11 @@ jobs:
     defaults:
       run:
         working-directory: ./terraform
-    
+
     permissions:
       contents: read
       id-token: write
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

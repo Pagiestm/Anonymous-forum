@@ -1,0 +1,28 @@
+# Dépendances
+node_modules/
+package-lock.json
+
+# Build et dist
+dist/
+build/
+*.min.js
+
+# Fichiers de configuration Terraform
+*.tfstate
+*.tfstate.backup
+.terraform/
+*.tfvars
+
+# Documentation
+README.md
+**/README.md
+
+# Logs
+*.log
+
+# Environnement
+.env
+.env.local
+
+# Fichiers générés
+coverage/
