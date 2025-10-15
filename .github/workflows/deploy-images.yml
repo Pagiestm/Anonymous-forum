@@ -299,39 +299,58 @@ jobs:
             echo "AWS secrets not present - using local backend"
           fi
 
+      - name: Check AWS credentials presence
+        id: check-aws
+        run: |
+          set -euo pipefail
+          if [ -n "${{ secrets.AWS_ACCESS_KEY_ID }}" ] && [ -n "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ]; then
+            echo "has_aws=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_aws=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Export TF_STATE_BUCKET secret (if provided)
+        env:
+          TF_STATE_BUCKET_SECRET: ${{ secrets.TF_STATE_BUCKET }}
+        run: |
+          if [ -n "${TF_STATE_BUCKET_SECRET-}" ]; then
+            echo "TF_STATE_BUCKET=${TF_STATE_BUCKET_SECRET}" >> $GITHUB_ENV
+            echo "Exported TF_STATE_BUCKET into GITHUB_ENV"
+          else
+            echo "TF_STATE_BUCKET not set"
+          fi
+
       # Initialize Terraform with remote S3 backend if AWS creds are present; otherwise fall back to local
       - name: Terraform Init (backend-aware)
         shell: bash
         run: |
           set -euo pipefail
-          if [ "${{ secrets.AWS_ACCESS_KEY_ID }}" != "" ] && [ "${{ secrets.AWS_SECRET_ACCESS_KEY }}" != "" ]; then
+          if [ -n "${AWS_ACCESS_KEY_ID-}" ] && [ -n "${AWS_SECRET_ACCESS_KEY-}" ]; then
             # derive a stable bucket and lock table name from repo (lowercase, replace / with -)
             REPO_SAFE=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]' | tr '/' '-')
             BUCKET_NAME="${REPO_SAFE}-tfstate"
             LOCK_TABLE_NAME="${REPO_SAFE}-tf-lock"
 
-            echo "Using S3 bucket: $BUCKET_NAME and DynamoDB table: $LOCK_TABLE_NAME"
+            echo "Using S3 bucket: $BUCKET_NAME (no DynamoDB lock)"
 
-            # create bucket if it does not exist (ignore if already owned)
+            # choose bucket: prefer TF_STATE_BUCKET secret, otherwise derived bucket
+            if [ -n "${TF_STATE_BUCKET-}" ]; then
+              BUCKET_NAME="$TF_STATE_BUCKET"
+              echo "Using TF_STATE_BUCKET from secrets: $BUCKET_NAME"
+            else
+              echo "No TF_STATE_BUCKET secret set; using derived bucket name: $BUCKET_NAME"
+            fi
+
+            # verify bucket exists (do NOT create it here - may lack permissions)
             if aws s3api head-bucket --bucket "$BUCKET_NAME" 2>/dev/null; then
               echo "Bucket $BUCKET_NAME exists"
             else
-              echo "Creating bucket $BUCKET_NAME"
-              aws s3api create-bucket --bucket "$BUCKET_NAME" --region eu-central-1 --create-bucket-configuration LocationConstraint=eu-central-1 || true
-              aws s3api put-bucket-versioning --bucket "$BUCKET_NAME" --versioning-configuration Status=Enabled
-              aws s3api put-bucket-encryption --bucket "$BUCKET_NAME" --server-side-encryption-configuration '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]}'
+              echo "ERROR: S3 bucket $BUCKET_NAME does not exist or is not accessible. Create it manually or set secret TF_STATE_BUCKET with an existing bucket."
+              exit 1
             fi
 
-            # create dynamodb table if not exists
-            if aws dynamodb describe-table --table-name "$LOCK_TABLE_NAME" >/dev/null 2>&1; then
-              echo "DynamoDB table $LOCK_TABLE_NAME exists"
-            else
-              echo "Creating DynamoDB table $LOCK_TABLE_NAME"
-              aws dynamodb create-table --table-name "$LOCK_TABLE_NAME" --attribute-definitions AttributeName=LockID,AttributeType=S --key-schema AttributeName=LockID,KeyType=HASH --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5 --region eu-central-1
-            fi
-
-            # Init terraform with backend-config
-            terraform init -backend-config="bucket=$BUCKET_NAME" -backend-config="key=terraform.tfstate" -backend-config="region=eu-central-1" -backend-config="dynamodb_table=$LOCK_TABLE_NAME"
+            # Init terraform with S3-only backend (no DynamoDB locking)
+            terraform init -backend-config="bucket=$BUCKET_NAME" -backend-config="key=terraform.tfstate" -backend-config="region=eu-central-1"
           else
             echo "AWS credentials not provided — initializing terraform with local backend"
             terraform init -backend=false
@@ -365,7 +384,7 @@ jobs:
     name: Deploy to AWS with Terraform
     needs: terraform-validate
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.terraform_action == 'apply')
+    if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.terraform_action == 'apply') }}
     environment:
       name: production
       url: ${{ steps.terraform-output.outputs.url }}
@@ -382,16 +401,35 @@ jobs:
         uses: actions/checkout@v4
 
       # Configuration des credentials AWS (export into GITHUB_ENV if provided)
-      - name: Configure AWS Credentials
+      - name: Check AWS credentials presence
+        id: check-aws
         run: |
           set -euo pipefail
           if [ -n "${{ secrets.AWS_ACCESS_KEY_ID }}" ] && [ -n "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ]; then
-            echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >> $GITHUB_ENV
-            echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> $GITHUB_ENV
-            echo "AWS_REGION=eu-central-1" >> $GITHUB_ENV
-            echo "Exported AWS credentials into GITHUB_ENV"
+            echo "has_aws=true" >> $GITHUB_OUTPUT
           else
-            echo "AWS secrets not present - deploy may use local backend or fail"
+            echo "has_aws=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Configure AWS Credentials
+        if: ${{ steps.check-aws.outputs.has_aws == 'true' }}
+        run: |
+          set -euo pipefail
+          echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >> $GITHUB_ENV
+          echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> $GITHUB_ENV
+          echo "AWS_REGION=eu-central-1" >> $GITHUB_ENV
+          echo "Exported AWS credentials into GITHUB_ENV"
+
+      - name: Export TF_STATE_BUCKET secret (if provided)
+        if: ${{ steps.check-aws.outputs.has_aws == 'true' }}
+        env:
+          TF_STATE_BUCKET_SECRET: ${{ secrets.TF_STATE_BUCKET }}
+        run: |
+          if [ -n "${TF_STATE_BUCKET_SECRET-}" ]; then
+            echo "TF_STATE_BUCKET=${TF_STATE_BUCKET_SECRET}" >> $GITHUB_ENV
+            echo "Exported TF_STATE_BUCKET into GITHUB_ENV"
+          else
+            echo "TF_STATE_BUCKET not set"
           fi
 
       # Installation de Terraform
@@ -403,6 +441,7 @@ jobs:
 
       # Initialisation Terraform (backend-aware)
       - name: Terraform Init (backend-aware)
+        if: ${{ steps.check-aws.outputs.has_aws == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -411,19 +450,22 @@ jobs:
             BUCKET_NAME="${REPO_SAFE}-tfstate"
             LOCK_TABLE_NAME="${REPO_SAFE}-tf-lock"
 
+            # choose bucket: prefer TF_STATE_BUCKET secret, otherwise derived bucket
+            if [ -n "${TF_STATE_BUCKET-}" ]; then
+              BUCKET_NAME="$TF_STATE_BUCKET"
+              echo "Using TF_STATE_BUCKET from secrets: $BUCKET_NAME"
+            else
+              echo "No TF_STATE_BUCKET secret set; using derived bucket name: $BUCKET_NAME"
+            fi
+
             if aws s3api head-bucket --bucket "$BUCKET_NAME" 2>/dev/null; then
               echo "Bucket $BUCKET_NAME exists"
             else
-              aws s3api create-bucket --bucket "$BUCKET_NAME" --region eu-central-1 --create-bucket-configuration LocationConstraint=eu-central-1 || true
-              aws s3api put-bucket-versioning --bucket "$BUCKET_NAME" --versioning-configuration Status=Enabled
-              aws s3api put-bucket-encryption --bucket "$BUCKET_NAME" --server-side-encryption-configuration '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]}'
+              echo "ERROR: S3 bucket $BUCKET_NAME does not exist or is not accessible. Create it manually or set secret TF_STATE_BUCKET with an existing bucket."
+              exit 1
             fi
 
-            if ! aws dynamodb describe-table --table-name "$LOCK_TABLE_NAME" >/dev/null 2>&1; then
-              aws dynamodb create-table --table-name "$LOCK_TABLE_NAME" --attribute-definitions AttributeName=LockID,AttributeType=S --key-schema AttributeName=LockID,KeyType=HASH --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5 --region eu-central-1
-            fi
-
-            terraform init -backend-config="bucket=$BUCKET_NAME" -backend-config="key=terraform.tfstate" -backend-config="region=eu-central-1" -backend-config="dynamodb_table=$LOCK_TABLE_NAME"
+            terraform init -backend-config="bucket=$BUCKET_NAME" -backend-config="key=terraform.tfstate" -backend-config="region=eu-central-1"
           else
             echo "AWS creds not present; running terraform init with local backend"
             terraform init -backend=false
@@ -431,6 +473,7 @@ jobs:
 
       # Plan Terraform (utilise les valeurs par défaut de variables.tf)
       - name: Terraform Plan
+        if: ${{ steps.check-aws.outputs.has_aws == 'true' }}
         id: plan
         run: |
           terraform plan -out=tfplan -no-color
@@ -447,13 +490,13 @@ jobs:
       # Application du plan Terraform
       # Toutes les variables sont automatiquement récupérées depuis variables.tf
       - name: Terraform Apply
-        if: steps.plan.outputs.exitcode == '0'
+        if: ${{ steps.check-aws.outputs.has_aws == 'true' && steps.plan.outputs.exitcode == '0' }}
         run: terraform apply -auto-approve tfplan
 
       # Récupération des outputs Terraform
       - name: Get Terraform Outputs
         id: terraform-output
-        if: always()
+        if: ${{ steps.check-aws.outputs.has_aws == 'true' }}
         run: |
           echo "url=$(terraform output -raw instance_public_ip 2>/dev/null || echo 'N/A')" >> $GITHUB_OUTPUT
           terraform output -json > terraform-outputs.json || echo '{}' > terraform-outputs.json
@@ -489,7 +532,7 @@ jobs:
   terraform-destroy:
     name: Destroy AWS Infrastructure (Manual Only)
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.terraform_action == 'destroy'
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.terraform_action == 'destroy' }}
     defaults:
       run:
         working-directory: ./terraform
@@ -503,16 +546,35 @@ jobs:
         uses: actions/checkout@v4
 
       # Configuration des credentials AWS (export into GITHUB_ENV if provided)
-      - name: Configure AWS Credentials
+      - name: Check AWS credentials presence
+        id: check-aws
         run: |
           set -euo pipefail
           if [ -n "${{ secrets.AWS_ACCESS_KEY_ID }}" ] && [ -n "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ]; then
-            echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >> $GITHUB_ENV
-            echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> $GITHUB_ENV
-            echo "AWS_REGION=eu-central-1" >> $GITHUB_ENV
-            echo "Exported AWS credentials into GITHUB_ENV"
+            echo "has_aws=true" >> $GITHUB_OUTPUT
           else
-            echo "AWS secrets not present - destroy may fail"
+            echo "has_aws=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Configure AWS Credentials
+        if: ${{ steps.check-aws.outputs.has_aws == 'true' }}
+        run: |
+          set -euo pipefail
+          echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >> $GITHUB_ENV
+          echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> $GITHUB_ENV
+          echo "AWS_REGION=eu-central-1" >> $GITHUB_ENV
+          echo "Exported AWS credentials into GITHUB_ENV"
+
+      - name: Export TF_STATE_BUCKET secret (if provided)
+        if: ${{ steps.check-aws.outputs.has_aws == 'true' }}
+        env:
+          TF_STATE_BUCKET_SECRET: ${{ secrets.TF_STATE_BUCKET }}
+        run: |
+          if [ -n "${TF_STATE_BUCKET_SECRET-}" ]; then
+            echo "TF_STATE_BUCKET=${TF_STATE_BUCKET_SECRET}" >> $GITHUB_ENV
+            echo "Exported TF_STATE_BUCKET into GITHUB_ENV"
+          else
+            echo "TF_STATE_BUCKET not set"
           fi
 
       # Installation de Terraform
@@ -523,6 +585,7 @@ jobs:
 
       # Initialisation Terraform (backend-aware)
       - name: Terraform Init (backend-aware)
+        if: ${{ steps.check-aws.outputs.has_aws == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -531,13 +594,22 @@ jobs:
             BUCKET_NAME="${REPO_SAFE}-tfstate"
             LOCK_TABLE_NAME="${REPO_SAFE}-tf-lock"
 
+            # choose bucket: prefer TF_STATE_BUCKET secret, otherwise derived bucket
+            if [ -n "${TF_STATE_BUCKET-}" ]; then
+              BUCKET_NAME="$TF_STATE_BUCKET"
+              echo "Using TF_STATE_BUCKET from secrets: $BUCKET_NAME"
+            else
+              echo "No TF_STATE_BUCKET secret set; using derived bucket name: $BUCKET_NAME"
+            fi
+
             if aws s3api head-bucket --bucket "$BUCKET_NAME" 2>/dev/null; then
               echo "Bucket $BUCKET_NAME exists"
             else
-              echo "Bucket $BUCKET_NAME not found; destroy may fail"
+              echo "ERROR: S3 bucket $BUCKET_NAME does not exist or is not accessible. Create it manually or set secret TF_STATE_BUCKET with an existing bucket."
+              exit 1
             fi
 
-            terraform init -backend-config="bucket=$BUCKET_NAME" -backend-config="key=terraform.tfstate" -backend-config="region=eu-central-1" -backend-config="dynamodb_table=$LOCK_TABLE_NAME"
+            terraform init -backend-config="bucket=$BUCKET_NAME" -backend-config="key=terraform.tfstate" -backend-config="region=eu-central-1"
           else
             echo "AWS creds not present; running terraform init with local backend"
             terraform init -backend=false
