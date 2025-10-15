@@ -66,9 +66,7 @@ locals {
       --name forum-thread \
       --restart always \
       -p 80:80 \
-      -e API_HOST=${aws_instance.api.private_ip}:3000 \
-      -e API_URL=http://${aws_instance.api.private_ip}:3000 \
-      -e SENDER_URL=http://${aws_instance.sender.private_ip}:80 \
+      -e API_HOST=${aws_instance.api.public_ip}:3000 \
       forum-thread
     echo "Thread started successfully" > /home/ec2-user/thread-status.txt
   EOF
@@ -90,7 +88,7 @@ locals {
       --name forum-sender \
       --restart always \
       -p 80:80 \
-      -e API_HOST=${aws_instance.api.private_ip}:3000 \
+      -e API_HOST=${aws_instance.api.public_ip}:3000 \
       forum-sender
     echo "Sender started successfully" > /home/ec2-user/sender-status.txt
   EOF
