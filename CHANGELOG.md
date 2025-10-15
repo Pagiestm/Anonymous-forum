@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.2.0](https://github.com/Pagiestm/Anonymous-forum/compare/v1.1.1...v1.2.0) (2025-10-15)
+
+
+### Features
+
+* add Terraform deployment documentation and update user data scripts for public IP usage ([f75a644](https://github.com/Pagiestm/Anonymous-forum/commit/f75a644000a8a72c44ee9fce631a9a6fb48add53))
+
+
+### Bug Fixes
+
+* strip CRLF from generated nginx conf and print API_HOST for debugging ([411678b](https://github.com/Pagiestm/Anonymous-forum/commit/411678b0c9998f41bac2d516f21dbb166d10b196))
+
 ## [1.1.1](https://github.com/Pagiestm/Anonymous-forum/compare/v1.1.0...v1.1.1) (2025-05-14)
 
 
