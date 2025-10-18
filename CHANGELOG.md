@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.3.0](https://github.com/Pagiestm/Anonymous-forum/compare/v1.2.0...v1.3.0) (2025-10-18)
+
+
+### Features
+
+* add Terraform deployment workflow with manual action options ([f05ca61](https://github.com/Pagiestm/Anonymous-forum/commit/f05ca6189fee3c1a07ff270ad42156c5a392c645))
+* update AWS and Terraform Cloud credentials configuration in deployment workflow ([d092bdf](https://github.com/Pagiestm/Anonymous-forum/commit/d092bdf6458fa6a1c2f8d70e142fd0b806e4e8a1))
+
+
+### Bug Fixes
+
+* remove trailing newline in Terraform Destroy step ([01b1d21](https://github.com/Pagiestm/Anonymous-forum/commit/01b1d218f18dfacf6fb93cbf66d92587ade632e2))
+
 ## [1.2.0](https://github.com/Pagiestm/Anonymous-forum/compare/v1.1.1...v1.2.0) (2025-10-15)
 
 
