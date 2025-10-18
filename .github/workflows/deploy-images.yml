@@ -263,4 +263,3 @@ jobs:
           sarif_file: 'trivy-results-${{ matrix.service }}.sarif'
           category: 'trivy-${{ matrix.service }}'
         continue-on-error: true
-
