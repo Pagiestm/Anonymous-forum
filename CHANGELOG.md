@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.4.0](https://github.com/Pagiestm/Anonymous-forum/compare/v1.3.0...v1.4.0) (2025-10-19)
+
+
+### Features
+
+* add Elastic IP resources for database and API, update user data scripts to reflect new IPs ([818abb8](https://github.com/Pagiestm/Anonymous-forum/commit/818abb8428a5d61f4b6c902f91291a980bb132ec))
+* enhance documentation for CI/CD workflows and Terraform deployment ([920e018](https://github.com/Pagiestm/Anonymous-forum/commit/920e0189ef46909bfa842f4b564ea24d80baba3d))
+* implement IAM roles and policies for EC2 instances to access SSM Parameter Store ([852683c](https://github.com/Pagiestm/Anonymous-forum/commit/852683cce8ac23624a1d8b3e0459cf73dd0aef9c))
+
+
+### Bug Fixes
+
+* move AWS credentials configuration step to the correct position in Terraform deployment workflow ([9c8e922](https://github.com/Pagiestm/Anonymous-forum/commit/9c8e922d8ccd0012a0e3387326256c2f4b65a42d))
+* remove AWS credentials configuration step from Terraform deployment workflow ([06f8ea4](https://github.com/Pagiestm/Anonymous-forum/commit/06f8ea43b2a665775954b172e2b16ef31d1bf647))
+* remove unnecessary domain attribute from Elastic IP resources ([9594f22](https://github.com/Pagiestm/Anonymous-forum/commit/9594f221922a7cc989bd45c76ba01aa374ae29c6))
+* update Terraform Cloud organization to match production environment ([9a671f9](https://github.com/Pagiestm/Anonymous-forum/commit/9a671f9f71fc7d88af3bdedae1fc497cb6b36593))
+
 ## [1.3.0](https://github.com/Pagiestm/Anonymous-forum/compare/v1.2.0...v1.3.0) (2025-10-18)
 
 
