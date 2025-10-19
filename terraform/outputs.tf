@@ -1,6 +1,6 @@
 output "api_url" {
   description = "URL de l'API backend"
-  value       = "http://${aws_eip.api.public_ip}:3000"
+  value       = "http://${aws_instance.api.public_ip}:3000"
 }
 
 output "thread_url" {
@@ -19,13 +19,21 @@ output "database_private_ip" {
 }
 
 output "database_public_ip" {
-  description = "IP publique fixe de la base de données (Elastic IP)"
-  value       = aws_eip.db.public_ip
+  description = "IP publique de la base de données"
+  value       = aws_instance.db.public_ip
 }
 
 output "api_public_ip" {
-  description = "IP publique fixe de l'API (Elastic IP)"
-  value       = aws_eip.api.public_ip
+  description = "IP publique de l'API"
+  value       = aws_instance.api.public_ip
+}
+
+output "parameter_store_paths" {
+  description = "Chemins des paramètres dans SSM Parameter Store"
+  value = {
+    db_ip  = aws_ssm_parameter.db_private_ip.name
+    api_ip = aws_ssm_parameter.api_public_ip.name
+  }
 }
 
 output "forum_access" {
@@ -33,7 +41,7 @@ output "forum_access" {
   value = {
     thread_interface = "http://${aws_instance.thread.public_ip}"
     sender_interface = "http://${aws_instance.sender.public_ip}"
-    api_endpoint     = "http://${aws_eip.api.public_ip}:3000"
+    api_endpoint     = "http://${aws_instance.api.public_ip}:3000"
   }
 }
 
@@ -41,9 +49,9 @@ output "deployment_info" {
   description = "Informations de déploiement"
   value = {
     region        = var.aws_region
-    api_ip        = aws_eip.api.public_ip
+    api_ip        = aws_instance.api.public_ip
     db_private_ip = aws_instance.db.private_ip
-    db_public_ip  = aws_eip.db.public_ip
+    db_public_ip  = aws_instance.db.public_ip
     thread_ip     = aws_instance.thread.public_ip
     sender_ip     = aws_instance.sender.public_ip
   }

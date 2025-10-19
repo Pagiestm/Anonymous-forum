@@ -39,8 +39,9 @@ locals {
     cd Anonymous-forum/api
     chown -R ec2-user:ec2-user /home/ec2-user/Anonymous-forum
     
-    # Attendre que l'Elastic IP soit assignée à la DB
+    # Récupérer l'IP de la DB depuis Parameter Store
     sleep 30
+    DB_IP=$(aws ssm get-parameter --name "/${var.student_prefix}/forum/db/private-ip" --region ${var.aws_region} --query 'Parameter.Value' --output text)
     
     # Utiliser l'IP privée de la DB (communication interne AWS)
     docker build -t forum-api .
@@ -48,13 +49,13 @@ locals {
       --name forum-api \
       --restart always \
       -p 3000:3000 \
-      -e MYSQL_HOST=${aws_instance.db.private_ip} \
+      -e MYSQL_HOST=$DB_IP \
       -e MYSQL_PORT=3306 \
       -e MYSQL_USER=root \
       -e MYSQL_PASSWORD=forumroot \
       -e MYSQL_DATABASE=forum \
       forum-api
-    echo "API started successfully with DB at ${aws_instance.db.private_ip}" > /home/ec2-user/api-status.txt
+    echo "API started successfully with DB at $DB_IP" > /home/ec2-user/api-status.txt
   EOF
 
   thread_user_data = <<-EOF
@@ -69,8 +70,9 @@ locals {
     cd Anonymous-forum/thread
     chown -R ec2-user:ec2-user /home/ec2-user/Anonymous-forum
     
-    # Attendre que l'API soit prête
+    # Attendre que l'API soit prête et récupérer son IP depuis Parameter Store
     sleep 45
+    API_IP=$(aws ssm get-parameter --name "/${var.student_prefix}/forum/api/public-ip" --region ${var.aws_region} --query 'Parameter.Value' --output text)
     
     docker build -t forum-thread .
     docker rm -f forum-thread || true
@@ -78,9 +80,9 @@ locals {
       --name forum-thread \
       --restart always \
       -p 80:80 \
-      -e API_HOST=${aws_eip.api.public_ip}:3000 \
+      -e API_HOST=$API_IP:3000 \
       forum-thread
-    echo "Thread started successfully with API at ${aws_eip.api.public_ip}:3000" > /home/ec2-user/thread-status.txt
+    echo "Thread started successfully with API at $API_IP:3000" > /home/ec2-user/thread-status.txt
   EOF
 
   sender_user_data = <<-EOF
@@ -95,8 +97,9 @@ locals {
     cd Anonymous-forum/sender
     chown -R ec2-user:ec2-user /home/ec2-user/Anonymous-forum
     
-    # Attendre que l'API soit prête
+    # Attendre que l'API soit prête et récupérer son IP depuis Parameter Store
     sleep 45
+    API_IP=$(aws ssm get-parameter --name "/${var.student_prefix}/forum/api/public-ip" --region ${var.aws_region} --query 'Parameter.Value' --output text)
     
     docker build -t forum-sender .
     docker rm -f forum-sender || true
@@ -104,8 +107,8 @@ locals {
       --name forum-sender \
       --restart always \
       -p 80:80 \
-      -e API_HOST=${aws_eip.api.public_ip}:3000 \
+      -e API_HOST=$API_IP:3000 \
       forum-sender
-    echo "Sender started successfully with API at ${aws_eip.api.public_ip}:3000" > /home/ec2-user/sender-status.txt
+    echo "Sender started successfully with API at $API_IP:3000" > /home/ec2-user/sender-status.txt
   EOF
 }
