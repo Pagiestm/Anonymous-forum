@@ -57,11 +57,15 @@ Le projet est composé de quatre services principaux fonctionnant dans des conte
 ```
 anonymous-forum/
 ├──.github/workflows/    # Configuration des workflows CI/CD
+│   └── README.md        # 📖 Documentation détaillée des workflows
 ├── api/                 # Service API
 │   ├── Dockerfile       # Configuration Docker pour l'API
 │   └── ...              # Code source de l'API
 ├── db/                  # Configuration de la base de données
 │   ├──init.sql          # Script d'initialisation de la base de données
+├── terraform/           # Infrastructure as Code AWS
+│   ├── README.md        # 📖 Guide de déploiement Terraform
+│   └── ...              # Configuration Terraform
 ├── thread/              # Service d'affichage des messages
 │   ├── Dockerfile       # Configuration Docker pour Thread
 │   └── ...              # Code source du frontend d'affichage
@@ -72,6 +76,15 @@ anonymous-forum/
 ├── CHANGELOG.md         # Historique des modifications automatisé
 └── README.md            # Documentation du projet
 ```
+
+## Documentation
+
+Consultez les guides détaillés pour l'infrastructure et les workflows :
+
+- [Guide Terraform (déploiement AWS)](terraform/README.md) — instructions pas-à-pas pour initialiser, planifier et appliquer l'infrastructure avec Terraform Cloud.
+- [Workflows CI/CD (GitHub Actions)](.github/workflows/README.md) — détails des pipelines `deploy-images.yml` et `terraform-deploy.yml`, étapes, scans de sécurité et secrets requis.
+
+Ces fichiers sont relatifs au dépôt et sont lisibles directement sur GitHub ou en local.
 
 ## Réseaux Docker
 
@@ -84,17 +97,31 @@ Le projet utilise deux réseaux Docker distincts pour assurer la sécurité :
 
 Le dépôt est lié à une pipeline CI/CD permettant à chaque commit de passer par les étapes suivantes :
 
-1. **Validation** : Vérification du code des services (linting, formatting)
+1. **Validation** : Vérification du code des services (linting, formatting, **analyse SAST**, **détection de secrets**)
 2. **Tests** : Lancement des tests (unitaires, d'intégration)
 3. **Construction** : Génération de l'image Docker pour chaque service, avec le tag de l'image correspondant au hash court du commit
-4. **Déploiement** : Push de l'image Docker générée sur GitHub Container Registry
+4. **Déploiement** : Mise en place via Terraform de la nouvelle version des services sur des instances EC2 sur AWS
+5. **Destruction** : Utiliser Terraform pour détruire l'infrastructure actuelle déployée
+
+### 🔒 Aspects Sécurité dans la CI
+
+La pipeline intègre automatiquement des vérifications de sécurité :
+
+- **Détection de secrets** : Scan automatique du code source pour identifier les clés API, mots de passe, tokens, etc. qui pourraient être accidentellement committés
+- **Analyse SAST (Static Application Security Testing)** : Analyse statique du code pour détecter les vulnérabilités de sécurité, mauvaises pratiques, et configurations dangereuses
+
+Ces outils s'intègrent facilement dans la pipeline et utilisent des actions GitHub Actions standard comme Trivy pour fournir des rapports détaillés.
 
 ### Workflows GitHub Actions
 
 | Workflow              | Description                              | Déclencheur               |
 | --------------------- | ---------------------------------------- | ------------------------- |
 | **deploy-images.yml** | Construit et publie les images Docker    | Push sur `develop`        |
+| **terraform-deploy.yml** | Déploie l'infrastructure AWS          | Push sur `main` ou manuel |
 | **release.yml**       | Génère une nouvelle version et changelog | Push sur `main` ou manuel |
+
+**📖 Pour plus de détails sur les workflows** : [.github/workflows/README.md](.github/workflows/README.md)  
+**📖 Pour le déploiement infrastructure** : [terraform/README.md](terraform/README.md)
 
 ## Gestion des versions
 
