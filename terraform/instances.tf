@@ -12,6 +12,26 @@ resource "aws_instance" "db" {
   }
 }
 
+# Elastic IP pour la base de données (IP fixe)
+resource "aws_eip" "db" {
+  instance = aws_instance.db.id
+  domain   = "vpc"
+
+  tags = {
+    Name = "${var.student_prefix}-forum-db-eip"
+  }
+}
+
+# Elastic IP pour l'API (IP fixe)
+resource "aws_eip" "api" {
+  instance = aws_instance.api.id
+  domain   = "vpc"
+
+  tags = {
+    Name = "${var.student_prefix}-forum-api-eip"
+  }
+}
+
 resource "aws_instance" "api" {
   ami                    = data.aws_ami.amazon_linux_2.id
   instance_type          = var.instance_type

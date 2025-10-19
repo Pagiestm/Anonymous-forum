@@ -10,6 +10,14 @@ terraform {
     }
   }
   required_version = ">= 1.0"
+
+  # Configuration du backend Terraform Cloud
+  cloud {
+    organization = "anonymous-forum-prod"
+    workspaces {
+      name = "aws-infra"
+    }
+  }
 }
 
 provider "aws" {
