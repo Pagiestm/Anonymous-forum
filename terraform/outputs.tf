@@ -1,6 +1,6 @@
 output "api_url" {
   description = "URL de l'API backend"
-  value       = "http://${aws_instance.api.public_ip}:3000"
+  value       = "http://${aws_eip.api.public_ip}:3000"
 }
 
 output "thread_url" {
@@ -13,21 +13,38 @@ output "sender_url" {
   value       = "http://${aws_instance.sender.public_ip}"
 }
 
+output "database_private_ip" {
+  description = "IP privée de la base de données (pour connexion interne)"
+  value       = aws_instance.db.private_ip
+}
+
+output "database_public_ip" {
+  description = "IP publique fixe de la base de données (Elastic IP)"
+  value       = aws_eip.db.public_ip
+}
+
+output "api_public_ip" {
+  description = "IP publique fixe de l'API (Elastic IP)"
+  value       = aws_eip.api.public_ip
+}
+
 output "forum_access" {
   description = "URLs d'accès au forum"
   value = {
     thread_interface = "http://${aws_instance.thread.public_ip}"
     sender_interface = "http://${aws_instance.sender.public_ip}"
-    api_endpoint     = "http://${aws_instance.api.public_ip}:3000"
+    api_endpoint     = "http://${aws_eip.api.public_ip}:3000"
   }
 }
 
 output "deployment_info" {
   description = "Informations de déploiement"
   value = {
-    region    = var.aws_region
-    api_ip    = aws_instance.api.public_ip
-    thread_ip = aws_instance.thread.public_ip
-    sender_ip = aws_instance.sender.public_ip
+    region        = var.aws_region
+    api_ip        = aws_eip.api.public_ip
+    db_private_ip = aws_instance.db.private_ip
+    db_public_ip  = aws_eip.db.public_ip
+    thread_ip     = aws_instance.thread.public_ip
+    sender_ip     = aws_instance.sender.public_ip
   }
 }

@@ -1,6 +1,9 @@
 name: Terraform Infrastructure Deploy
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       terraform_action:
@@ -54,7 +57,7 @@ jobs:
         run: terraform plan -out=tfplan
 
       - name: Terraform Apply
-        if: github.event.inputs.terraform_action == 'apply'
+        if: github.ref == 'refs/heads/main' || github.event.inputs.terraform_action == 'apply'
         run: terraform apply -auto-approve tfplan
 
       - name: Terraform Destroy

@@ -38,6 +38,11 @@ locals {
     git clone https://github.com/Pagiestm/Anonymous-forum.git
     cd Anonymous-forum/api
     chown -R ec2-user:ec2-user /home/ec2-user/Anonymous-forum
+    
+    # Attendre que l'Elastic IP soit assignée à la DB
+    sleep 30
+    
+    # Utiliser l'IP privée de la DB (communication interne AWS)
     docker build -t forum-api .
     docker run -d \
       --name forum-api \
@@ -49,7 +54,7 @@ locals {
       -e MYSQL_PASSWORD=forumroot \
       -e MYSQL_DATABASE=forum \
       forum-api
-    echo "API started successfully" > /home/ec2-user/api-status.txt
+    echo "API started successfully with DB at ${aws_instance.db.private_ip}" > /home/ec2-user/api-status.txt
   EOF
 
   thread_user_data = <<-EOF
@@ -63,15 +68,19 @@ locals {
     fi
     cd Anonymous-forum/thread
     chown -R ec2-user:ec2-user /home/ec2-user/Anonymous-forum
+    
+    # Attendre que l'API soit prête
+    sleep 45
+    
     docker build -t forum-thread .
     docker rm -f forum-thread || true
     docker run -d \
       --name forum-thread \
       --restart always \
       -p 80:80 \
-      -e API_HOST=${aws_instance.api.public_ip}:3000 \
+      -e API_HOST=${aws_eip.api.public_ip}:3000 \
       forum-thread
-    echo "Thread started successfully" > /home/ec2-user/thread-status.txt
+    echo "Thread started successfully with API at ${aws_eip.api.public_ip}:3000" > /home/ec2-user/thread-status.txt
   EOF
 
   sender_user_data = <<-EOF
@@ -85,14 +94,18 @@ locals {
     fi
     cd Anonymous-forum/sender
     chown -R ec2-user:ec2-user /home/ec2-user/Anonymous-forum
+    
+    # Attendre que l'API soit prête
+    sleep 45
+    
     docker build -t forum-sender .
     docker rm -f forum-sender || true
     docker run -d \
       --name forum-sender \
       --restart always \
       -p 80:80 \
-      -e API_HOST=${aws_instance.api.public_ip}:3000 \
+      -e API_HOST=${aws_eip.api.public_ip}:3000 \
       forum-sender
-    echo "Sender started successfully" > /home/ec2-user/sender-status.txt
+    echo "Sender started successfully with API at ${aws_eip.api.public_ip}:3000" > /home/ec2-user/sender-status.txt
   EOF
 }
