@@ -39,11 +39,15 @@ locals {
     cd Anonymous-forum/api
     chown -R ec2-user:ec2-user /home/ec2-user/Anonymous-forum
     
-    # Récupérer l'IP de la DB depuis Parameter Store
+    # Récupérer l'IP privée de la DB via les tags AWS
     sleep 30
-    DB_IP=$(aws ssm get-parameter --name "/${var.student_prefix}/forum/db/private-ip" --region ${var.aws_region} --query 'Parameter.Value' --output text)
+    DB_IP=$(aws ec2 describe-instances \
+      --region ${var.aws_region} \
+      --filters "Name=tag:Name,Values=${var.student_prefix}-forum-db" "Name=instance-state-name,Values=running" \
+      --query 'Reservations[0].Instances[0].PrivateIpAddress' \
+      --output text)
     
-    # Utiliser l'IP privée de la DB (communication interne AWS)
+    # Construire et lancer l'API avec l'IP de la DB
     docker build -t forum-api .
     docker run -d \
       --name forum-api \
@@ -70,9 +74,13 @@ locals {
     cd Anonymous-forum/thread
     chown -R ec2-user:ec2-user /home/ec2-user/Anonymous-forum
     
-    # Attendre que l'API soit prête et récupérer son IP depuis Parameter Store
+    # Attendre que l'API soit prête et récupérer son IP via les tags AWS
     sleep 45
-    API_IP=$(aws ssm get-parameter --name "/${var.student_prefix}/forum/api/public-ip" --region ${var.aws_region} --query 'Parameter.Value' --output text)
+    API_IP=$(aws ec2 describe-instances \
+      --region ${var.aws_region} \
+      --filters "Name=tag:Name,Values=${var.student_prefix}-forum-api" "Name=instance-state-name,Values=running" \
+      --query 'Reservations[0].Instances[0].PublicIpAddress' \
+      --output text)
     
     docker build -t forum-thread .
     docker rm -f forum-thread || true
@@ -97,9 +105,13 @@ locals {
     cd Anonymous-forum/sender
     chown -R ec2-user:ec2-user /home/ec2-user/Anonymous-forum
     
-    # Attendre que l'API soit prête et récupérer son IP depuis Parameter Store
+    # Attendre que l'API soit prête et récupérer son IP via les tags AWS
     sleep 45
-    API_IP=$(aws ssm get-parameter --name "/${var.student_prefix}/forum/api/public-ip" --region ${var.aws_region} --query 'Parameter.Value' --output text)
+    API_IP=$(aws ec2 describe-instances \
+      --region ${var.aws_region} \
+      --filters "Name=tag:Name,Values=${var.student_prefix}-forum-api" "Name=instance-state-name,Values=running" \
+      --query 'Reservations[0].Instances[0].PublicIpAddress' \
+      --output text)
     
     docker build -t forum-sender .
     docker rm -f forum-sender || true

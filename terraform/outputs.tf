@@ -28,14 +28,6 @@ output "api_public_ip" {
   value       = aws_instance.api.public_ip
 }
 
-output "parameter_store_paths" {
-  description = "Chemins des paramètres dans SSM Parameter Store"
-  value = {
-    db_ip  = aws_ssm_parameter.db_private_ip.name
-    api_ip = aws_ssm_parameter.api_public_ip.name
-  }
-}
-
 output "forum_access" {
   description = "URLs d'accès au forum"
   value = {
