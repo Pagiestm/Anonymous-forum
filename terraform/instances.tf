@@ -15,7 +15,6 @@ resource "aws_instance" "db" {
 # Elastic IP pour la base de données (IP fixe)
 resource "aws_eip" "db" {
   instance = aws_instance.db.id
-  domain   = "vpc"
 
   tags = {
     Name = "${var.student_prefix}-forum-db-eip"
@@ -25,7 +24,6 @@ resource "aws_eip" "db" {
 # Elastic IP pour l'API (IP fixe)
 resource "aws_eip" "api" {
   instance = aws_instance.api.id
-  domain   = "vpc"
 
   tags = {
     Name = "${var.student_prefix}-forum-api-eip"
